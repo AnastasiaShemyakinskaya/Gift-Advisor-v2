@@ -6,8 +6,8 @@ echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | tee -a /etc/apt/s
 apt-get update
 apt-get install -y kubectl
 
-wcurl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-mv minikube-linux-amd64 /usr/local/bin/minikube
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+mv minikube /usr/local/bin/minikube
 chmod 755 /usr/local/bin/minikube
 
 snap install helm --classic
