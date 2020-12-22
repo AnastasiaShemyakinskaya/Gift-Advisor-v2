@@ -1,0 +1,89 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+# Use a package of configuration called an orb.
+orbs:
+  # Declare a dependency on the welcome-orb
+  docker: circleci/docker@1.5.0
+  gradle: circleci/gradle@2.2.0
+# Orchestrate or schedule a set of jobs
+jobs:
+  compile-java:
+    executor:
+      name: gradle/default
+      tag: '11.0'
+    steps:
+      - checkout
+      - run:
+          command: ./gradlew build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+
+  build-and-push-java:
+    executor: docker/docker
+    steps:
+      - setup_remote_docker
+      - attach_workspace:
+          at: .
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/gift-advisor-backend
+      - docker/push:
+          digest-path: /tmp/digest_spring.txt
+          image: $DOCKER_LOGIN/gift-advisor-backend
+      - run:
+          command: |
+            echo "Digest is: $(</tmp/digest_spring.txt)"
+
+  build-and-push-angular:
+    executor: docker/docker
+    working_directory: ~/gift-advisor
+    steps:
+      - setup_remote_docker
+      - checkout
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/gift-advisor-frontend
+          path: gift-advisor
+          docker-context: gift-advisor
+      - docker/push:
+          digest-path: /tmp/digest_angular.txt
+          image: $DOCKER_LOGIN/gift-advisor-frontend
+      - run:
+          command: |
+            echo "Digest is: $(</tmp/digest_angular.txt)"
+
+  build-and-push-bd:
+    executor: docker/docker
+    working_directory: ~/postgres
+    steps:
+      - setup_remote_docker 
+      - checkout
+      - docker/check
+      - docker/build:
+          image: $DOCKER_LOGIN/gift-advisor-postgres
+          path: postgres
+          docker-context: postgres
+      - docker/push:
+          digest-path: /tmp/digest_bd.txt
+          image: $DOCKER_LOGIN/gift-advisor-postgres
+      - run:
+          command: |
+            echo "Digest is: $(</tmp/digest_bd.txt)"
+
+
+workflows:
+  build-docker-image:
+    jobs:
+      - compile-java
+      - gradle/test:
+          test_results_path: build/reports
+          executor:
+            name: gradle/default
+            tag: '11.0'
+      - build-and-push-java:
+          requires: 
+            - compile-java
+      - build-and-push-angular
+      - build-and-push-bd
